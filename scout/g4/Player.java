@@ -165,14 +165,16 @@ public class Player extends scout.sim.Player {
         int dx = x - pos.x;
         int dy = y - pos.y;
         this.pos = new Point(x, y);
+        HashSet<Point> localizedSafe = new HashSet<>();
         for (Point safe : this.safeLocations) {
-            safe.x += dx;
-            safe.y += dy;
+            localizedSafe.add(new Point(safe.x + dx, safe.y + dy));
         }
+        this.safeLocations = localizedSafe;
+        HashSet<Point> localizedEnemies = new HashSet<>();
         for (Point enemy : this.enemyLocations) {
-            enemy.x += dx;
-            enemy.y += dy;
+            localizedEnemies.add(new Point(enemy.x + dx, enemy.y + dy));
         }
+        this.enemyLocations = localizedEnemies;
         System.out.println("Player " + this.seed + "(" + pos.x + "," + pos.y + ") localized!");
         for (Point enemy : this.enemyLocations) {
             System.out.println("\t(" + enemy.x + "," + enemy.y + ")");
