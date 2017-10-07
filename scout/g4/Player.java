@@ -1,4 +1,4 @@
-package scout.g7;
+package scout.g4;
 
 import scout.sim.*;
 
@@ -181,4 +181,10 @@ public class Player extends scout.sim.Player {
         }
         this.localized = true;
     }
+
+	@Override
+	public void moveFinished() {
+		// TODO Auto-generated method stub
+		
+	}
 }
