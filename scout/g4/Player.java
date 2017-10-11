@@ -202,8 +202,47 @@ public class Player extends scout.sim.Player {
             this.time = time;
             this.prev = prev;
         }
-    }
 
+        Map<Point> parents = new HashMap<>();
+        Map<Point> actions = new HashMap<>();
+        Map<Point, Integer> costs = new HashMap<>();
+        costs.put(state, 0);
+        int states_expanded = 0;
+        int max_frontier = 0;
+        // f = heuristic(state) 
+        // frontier = [(f, state)]
+        HashSet<Point> explored = new HashSet();
+        HashSet<Point> seen = new HashSet();
+        seen.add(state);
+
+        while (frontier.length() != 0){
+            if (max_frontier < frontier.length()){
+                max_frontier = frontier.length();
+            }
+            Point popped_node = heappop(frontier);
+            node = popped_node;
+            explored.add(node);
+            states_expanded += 1;
+            if goal_test(node){
+                solution = get_solution(state, node, parents, actions);
+                return solution, states_expanded, max_frontier;
+            }
+            for successor in get_successors(node){
+                action = successor[0];
+                new_state = successor[1];
+                if (new_state not in explored) and (new_state not in seen){
+                    if (new_state not in frontier){
+                        int new_state_cost = costs.get(node) + 1;
+                        costs.put(new_state, new_state_cost);
+                        // f = new_state_cost + heuristic(new_state);
+                        parents.put(new_state, node);
+                        actions(new_state, action);
+                        heappush(frontier, (f, new_state));
+                        seen.add(new_state);
+                    }
+                }
+            }
+        }
 
     /**
      * Called every turn as opposed to every 2/3/6/9 turns.
@@ -283,7 +322,6 @@ public class Player extends scout.sim.Player {
             unexploredLocations.remove(localEnemy);
         }
         this.enemyLocations = localizedEnemies;
-        //System.out.println("Player " + this.seed + " (" + pos.x + "," + pos.y + ") localized on turn " + turnsPassed + "!");
         this.localized = true;
         if (this.state == State.LOCALIZING) {
             this.state = State.EXPLORING;
@@ -314,7 +352,6 @@ public class Player extends scout.sim.Player {
                     if (id.charAt(0) == 'P') {
                         int consideredId = idNum(id);
                         if (seed % 4 == consideredId % 4 && turnsSinceSync[consideredId] > STALE_THRESHOLD && consideredId > maxId) {
-                            //System.out.println(seed + ": Haven't seen scout " + consideredId + " in " + turnsSinceSync[consideredId] + " turns, trying to meet up");
                             maxId = consideredId;
                             scoutX = i - 1;
                             scoutY = j - 1;
@@ -408,6 +445,7 @@ public class Player extends scout.sim.Player {
         return unseen;
     }
 
+    // calculate cost
     public int moveCost(Point move) {
         if (move.x == 0 && move.y == 0) {
             return 1;
@@ -421,20 +459,25 @@ public class Player extends scout.sim.Player {
         return cost * scale;
     }
 
+
+    // return new point after move
     public Point moveTowards(Point p) {
         return new Point(Integer.signum(p.x - pos.x), Integer.signum(p.y - pos.y));
     }
 
+    // add the current position to the path
     public ArrayList<Point> getPath(Point to) {
         ArrayList<Point> path = new ArrayList<Point>();
         path.add(this.pos);
         return path;
     }
 
+    // calculate travel time and take account of the enemies
     public int travelTime(Point from, Point to) {
         return (int) 6 * Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
     }
 
+    // add a point to the safe location set
     public void addSafeLocation(Point p) {
         if (unexploredLocations != null) {
             unexploredLocations.remove(p);
@@ -442,6 +485,7 @@ public class Player extends scout.sim.Player {
         safeLocations.add(p);
     }
 
+    // add a point to the enemy location set
     public void addEnemyLocation(Point p) {
         if (unexploredLocations != null) {
             unexploredLocations.remove(p);
