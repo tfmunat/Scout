@@ -9,13 +9,21 @@ import java.util.*;
 public class Player extends scout.sim.Player {
     HashSet<Point> enemyLocations;
     HashSet<Point> safeLocations;
-    CellObject map[][];
+    int knownLocations[][];
     Point pos;
     Point endDir;
     Random gen;
-    int t,n;
+    Point lastMove;
+    int t,n, turnsPassed;
     int seed;
     boolean localized;
+    boolean localizedX;
+    boolean localizedY;
+    int turnsSinceSync[];
+    
+    // Time since seeing another player after which their info should be
+    // considered out of date (so we should try to communicate again)
+    public final int STALE_THRESHOLD = 30;
 
     /**
     * better to use init instead of constructor, don't modify ID or simulator will error
@@ -35,10 +43,12 @@ public class Player extends scout.sim.Player {
         gen = new Random(seed);
         this.t = t;
         this.n = n;
+        this.turnsPassed = 0;
         int size = 2 * this.n + 3;
-        this.map = new CellObject[size][];
+        //this.map = new CellObject[size][];
         this.pos = new Point(0, 0);
         this.localized = false;
+        this.turnsSinceSync = new int[s];
         if (this.seed % 4 == 0) {
             this.endDir = new Point(1, 1);
         } else if (this.seed % 4 == 1) {
@@ -48,6 +58,12 @@ public class Player extends scout.sim.Player {
         } else if (this.seed % 4 == 3) {
             this.endDir = new Point(-1, -1);
         }
+    }
+    
+    @Override
+    public void moveFinished() {
+        pos.x += this.lastMove.x;
+        pos.y += this.lastMove.y;
     }
 
     /**
@@ -65,9 +81,7 @@ public class Player extends scout.sim.Player {
         if (nearbyIds.get(1).get(1 + move.y) == null) {
             move.y = 0;
         }
-        pos.x += move.x;
-        pos.y += move.y;
-        System.out.println("Pos: (" + pos.x + "," + pos.y + ")");
+        this.lastMove = move;
         return move;
     }
     
@@ -83,16 +97,12 @@ public class Player extends scout.sim.Player {
                     if (id.charAt(0) == 'E') {
                         safe = false;
                     }
-                    Point consideredLocation = new Point(pos.x + i - 1, pos.y + j - 1);
-                    if(safe) {
-                        if(!safeLocations.contains(consideredLocation)) {
-                            safeLocations.add(consideredLocation);
-                        }
-                    } else {
-                        if(!enemyLocations.contains(consideredLocation)) {
-                            enemyLocations.add(consideredLocation);
-                        }
-                    }
+                }
+                Point consideredLocation = new Point(pos.x + i - 1, pos.y + j - 1);
+                if(safe) {
+                    safeLocations.add(consideredLocation);
+                } else {
+                    enemyLocations.add(consideredLocation);
                 }
             }
         }
@@ -119,25 +129,55 @@ public class Player extends scout.sim.Player {
             return new Point(0, 0);
         }
         
-        //return x \in {-1,1}, y \in {-1,1}
-        return new Point((gen.nextInt(2) * 2) - 1, (gen.nextInt(2) * 2) - 1);
+        Point meeting = meetingPoint(nearbyIds);
+        if (meeting != null) {
+            return meeting;
+        }
+        return bestPoint();
     }
     
     @Override
     public void communicate(ArrayList<ArrayList<ArrayList<String>>> nearbyIds, List<CellObject> concurrentObjects) {
-        --t;
+        if (!localizedY) {
+            if (nearbyIds.get(1).get(0) == null) {
+                localize(new Point(pos.x, 0));
+                localized = false;
+                localizedY = true;
+            }
+            if (nearbyIds.get(1).get(2) == null) {
+                localize(new Point(pos.x, this.n + 1));
+                localized = false;
+                localizedY = true;
+            }
+        }
+        if (!localizedX) {
+            if (nearbyIds.get(0).get(1) == null) {
+                localize(new Point(0, pos.y));
+                localized = false;
+                localizedX = true;
+            }
+            if (nearbyIds.get(2).get(1) == null) {
+                localize(new Point(this.n + 1, pos.y));
+                localized = false;
+                localizedX = true;
+            }
+        }
+        if (localizedX && localizedY) {
+            localized = true;
+        }
         for (CellObject obj : concurrentObjects) {
             if (obj instanceof Player) {
-                if (obj == this) {
-                    continue;
-                }
                 Player other = (Player) obj;
+                if (!localized && other.localized) {
+                    localize(other.pos);
+                }
                 for (Point p : other.safeLocations) {
                     this.safeLocations.add(translatePoint(p, other));
                 }
                 for (Point p : other.enemyLocations) {
                     this.enemyLocations.add(translatePoint(p, other));
                 }
+                turnsSinceSync[other.seed] = 0;
             } else if (obj instanceof Landmark && !localized) {
                 localize(((Landmark) obj).getLocation());
             } else if (obj instanceof Outpost) {
@@ -152,6 +192,11 @@ public class Player extends scout.sim.Player {
                     post.addEnemyLocation(unsafe);
                 }
             }
+        }
+        --t;
+        turnsPassed++;
+        for (int i = 0; i < turnsSinceSync.length; i++) {
+            turnsSinceSync[i]++;
         }
     }
     
@@ -175,16 +220,94 @@ public class Player extends scout.sim.Player {
             localizedEnemies.add(new Point(enemy.x + dx, enemy.y + dy));
         }
         this.enemyLocations = localizedEnemies;
-        System.out.println("Player " + this.seed + "(" + pos.x + "," + pos.y + ") localized!");
-        for (Point enemy : this.enemyLocations) {
-            System.out.println("\t(" + enemy.x + "," + enemy.y + ")");
-        }
+        //System.out.println("Player " + this.seed + " (" + pos.x + "," + pos.y + ") localized on turn " + turnsPassed + "!");
         this.localized = true;
     }
-
-	@Override
-	public void moveFinished() {
-		// TODO Auto-generated method stub
-		
-	}
+    
+    // Parse the raw number from an id string
+    public int idNum(String id) {
+        String suffix = id.substring(1);
+        return Integer.parseInt(suffix);
+    }
+    
+    // Get a point to meet with an adjacent scout at, if necessary
+    public Point meetingPoint(ArrayList<ArrayList<ArrayList<String>>> nearbyIds) {
+        int maxId = -1;
+        int scoutX = 0;
+        int scoutY = 0;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (i == 0 && j == 0) {
+                    continue;
+                }
+                ArrayList<String> ids = nearbyIds.get(i).get(j);
+                if (ids == null) {
+                    continue;
+                }
+                for (String id : ids) {
+                    if (id.charAt(0) == 'P') {
+                        int consideredId = idNum(id);
+                        if (turnsSinceSync[consideredId] > STALE_THRESHOLD && consideredId > maxId) {
+                            //System.out.println(seed + ": Haven't seen scout " + consideredId + " in " + turnsSinceSync[consideredId] + " turns, trying to meet up");
+                            maxId = consideredId;
+                            scoutX = i - 1;
+                            scoutY = j - 1;
+                        }
+                    }
+                }
+            }
+        }
+        if (maxId != -1) {
+            if (scoutX == 1) {
+                return new Point(1, 0);
+            } else if (scoutY == 1) {
+                return new Point(0, 1);
+            } else if (scoutX == 0 && scoutY == 0) {
+                return new Point(0, -1);
+            } else {
+                return new Point(0, 0);
+            }
+        } else {
+            return null;
+        }
+    }
+    
+    public Point bestPoint() {
+        int maxUnseen = -1;
+        ArrayList<Point> maxPoints = new ArrayList<Point>();
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (i == 0 && j == 0) {
+                    continue;
+                }
+                Point move = new Point(i - 1, j - 1);
+                Point newPos = new Point(this.pos.x + move.x, this.pos.y + move.y);
+                int unseen = unseenSquares(newPos);
+                if (unseen > maxUnseen) {
+                    maxUnseen = unseen;
+                    maxPoints.clear();
+                    maxPoints.add(move);
+                } else if (unseen == maxUnseen) {
+                    maxPoints.add(move);
+                }
+            }
+        }
+        int index = gen.nextInt(maxPoints.size());
+        return maxPoints.get(index);
+    }
+    
+    public int unseenSquares(Point surrounding) {
+        int unseen = 0;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                Point p = new Point(surrounding.x + i - 1, surrounding.y + j - 1);
+                if ((!(localizedX || localized) || (p.x <= this.n && p.x >= 1)) && (!(localizedY || localized) || (p.y <= this.n && p.y >= 1))) {
+                    if (!this.safeLocations.contains(p) && !this.enemyLocations.contains(p)) {
+                        unseen++;
+                    }
+                }
+            }
+        }
+        return unseen;
+    }
 }
