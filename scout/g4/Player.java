@@ -416,7 +416,28 @@ public class Player extends scout.sim.Player {
     public int travelTime(Point from, Point to) {
         return (int) 6 * Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
     }
-    
+   
+    // Dijktra inner class
+    class Dijkstra{
+        public Point p1, p2;
+        
+        public Dijkstra(Point from, Point to){
+            this.p1 = from;
+            this.p2 = to:
+        }
+
+        public int calculate(p1, p2){
+            // to implement
+        } 
+    }
+
+    // instead of travelTime, we could use travelCost using Dijkstra
+    public int travelCost(Point from, Point to){
+        Dijsktra d = new Dijkstra(from, to);
+        return dijkstra.calculate();
+    }
+   
+
     public void addSafeLocation(Point p) {
         if (unexploredLocations != null) {
             unexploredLocations.remove(p);
