@@ -34,6 +34,8 @@ public class Player extends scout.sim.Player {
     Point toExplore;
     int[][] adjMatrix;
     ShortestPath currentPath;
+    int currentPathIndex;// this holds onto the value in currentPath which should be snagged. 
+    // Don't forget to set currentPath to null after you've traveled to where you're going.
     
     // Time since seeing another player after which their info should be
     // considered out of date (so we should try to communicate again)
@@ -87,16 +89,16 @@ public class Player extends scout.sim.Player {
                 if (inQuadrant(p)) {
                     unexploredLocations.add(p);
                 }
-                System.out.println("Updating two points");
-                System.out.println(p.x);
-                System.out.println(p.y);
-                System.out.println("\n");
+//                System.out.println("Updating two points");
+//                System.out.println(p.x);
+//                System.out.println(p.y);
+//                System.out.println("\n");
                 this.adjMatrix = updateAdjMatrix(this.adjMatrix, p, false);// updating adj matrix for all 
                 // enemies everywhere. Trust no one.
             }
         }
         currentPath = null;
-        
+        currentPathIndex = 0;
         
     }
     
@@ -156,6 +158,12 @@ public class Player extends scout.sim.Player {
         }
     }
     
+    
+    public Point indexToPoint(int index) {// converts index in adj matrix to point on grid
+    	Point myPoint = new Point((int) Math.floor(index/n), index % n);
+    	return myPoint;
+    }
+    
     private Point getMove(ArrayList<ArrayList<ArrayList<String>>> nearbyIds, List<CellObject> concurrentObjects) {
         /* If there's fewer than the number of turns required to get to any
          * corner, start moving in the end direction.
@@ -165,22 +173,21 @@ public class Player extends scout.sim.Player {
         	//TODO get best path to return to outpost here too
             return endDir;
         } else if (state == State.MEETING) {
-//            if(this.currentPath == null) {
-//            	ShortestPath t = new ShortestPath();
-//                t.dijkstra(this.adjMatrix, pointToIndex(this.pos),pointToIndex(new Point(n/2, n/2)));
-//                this.currentPath = t;
-//            }
+            if(this.currentPath == null) {
+            	ShortestPath t = new ShortestPath();
+                t.dijkstra(this.adjMatrix, pointToIndex(this.pos),pointToIndex(new Point(n/2, n/2)));
+                this.currentPath = t;
+                this.currentPathIndex = 0;
+            }
 //            ShortestPath t = new ShortestPath();
 //            t.dijkstra(this.adjMatrix, pointToIndex(this.pos),pointToIndex(new Point(n/2, n/2)));
-//            System.out.println("Moving towards the center");
-//            for 
-//            System.out.println();
-            return moveTowards(new Point(n/2, n/2));
-            //TODO replace this function with a call to get path. Save path and use for travel
-            // TODO find next spot to move to in list paths
-            // Move to that spotusing ShortestMove
-            // remove that spot
-            //remember to convert from indices to points
+            System.out.println("Moving towards the center");
+            Point destination = indexToPoint(currentPath.paths.get(currentPathIndex));
+            if(currentPathIndex < (currentPath.paths.size() - 1)) {
+            	currentPathIndex++;
+            }
+            return moveTowards(destination);
+//            return moveTowards(new Point(n/2, n/2));
             
         } else if (state == State.EXPLORING) {
         
@@ -452,7 +459,8 @@ public class Player extends scout.sim.Player {
         // t.paths[toStr(pointToIndex(to))] has the path to 'to' from 'from'
     	// Don't forget to update algorithm to deal with weird indexing they use
     	// Method above will have to be changed so it returns time and path to take
-        return (int) 6 * Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
+        return t.dist;
+//        return (int) 6 * Msath.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
     }
     
     public void addSafeLocation(Point p) {
@@ -473,8 +481,6 @@ public class Player extends scout.sim.Player {
     	int index = pt.x*n + pt.y;
     	return index;
     }
-    // TODO debug code to this point
-    // TODO have player move along this path when moving to center and when moving to outposts
     
     public int[][] updateAdjMatrix(int [][] adjcMatrix, Point updatePt, boolean safe){
     	// Takes in a and adjacency matrix of size (n+1)^2 X (n+1)^2 and updates the coordinates affected
@@ -516,8 +522,8 @@ public class Player extends scout.sim.Player {
 						enemyMultiplier = 3;
 					}
 //					System.out.println("updating two indices");
-//					System.out.println(adjcIndex_updatePt);// TODO now this is negative...
-//					System.out.println(adjcIndex_surrPt);// TODO this is negative and idk why but wtf 
+//					System.out.println(adjcIndex_updatePt);
+//					System.out.println(adjcIndex_surrPt);
 //					System.out.println("For matrix of size");
 //					System.out.println(adjcMatrix.length);
 //					System.out.println(adjcMatrix[0].length);

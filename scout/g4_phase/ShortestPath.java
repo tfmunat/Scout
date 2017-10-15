@@ -94,7 +94,7 @@ void dijkstra(int graph[][], int src, int target)
      }
 
      // print the constructed distance array
-     printSolution(dist, V);
+//     printSolution(dist, V);
      this.dist = dist[target];
      this.paths = paths.get(Integer.toString(target));
  }
