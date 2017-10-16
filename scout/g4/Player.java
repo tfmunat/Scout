@@ -170,13 +170,9 @@ public class Player extends scout.sim.Player {
         } else if (state == State.MEETING) {
             return moveTowards(new Point(n/2, n/2));
         } else if (state == State.EXPLORING) {
-            if (toExplore != null) {
-                return moveTowards(toExplore);
-            }
-            exploreMove++;
             if (exploreMove == 0) {
                 if (!pos.equals(explorePath.get(exploreBase))) {
-                    toExplore = explorePath.get(exploreBase);
+                    return moveTowards(explorePath.get(exploreBase));
                 } else {
                     exploreMove++;
                 }
@@ -185,7 +181,9 @@ public class Player extends scout.sim.Player {
                 this.state = State.MEETING;
                 return moveTowards(new Point(n/2, n/2));
             }
-            return moveTowards(explorePath.get(exploreBase + exploreMove));
+            Point move = moveTowards(explorePath.get(exploreBase + exploreMove));
+            exploreMove++;
+            return move;
         } else if (state == State.REEXPLORING) {
             if (!inQuadrant(this.pos)) {
                 return moveTowards(this.outpost);
@@ -225,15 +223,15 @@ public class Player extends scout.sim.Player {
 //        if (localizedX && localizedY && !localized) {
 //            localize(new Point(pos.x - xOffset, pos.y - yOffset));
 //        }
-        int communicatorsSeen = 0;
+        int inQuadrantSeen = 0;
         for (CellObject obj : concurrentObjects) {
             if (obj instanceof Player) {
                 Player other = (Player) obj;
                 if (other == this) {
                     continue;
                 }
-                if (other.seed / 4 == this.scoutsInQuadrant - 1) {
-                    communicatorsSeen++;
+                if (other.seed % 4 == this.seed % 4) {
+                    inQuadrantSeen++;
                 }
 //                if (playerTurnMap[other.seed] == other.lastChanged) {
 //                    continue;
@@ -273,7 +271,7 @@ public class Player extends scout.sim.Player {
                 this.state = State.RETURNING;
         }
         if (this.state == State.MEETING && pos.x == n/2 && pos.y == n/2) {
-            if (this.seed / 4 != this.scoutsInQuadrant - 1 && communicatorsSeen > 0) {
+            if (this.seed / 4 != this.scoutsInQuadrant - 1 && inQuadrantSeen == this.scoutsInQuadrant - 1) {
                 this.state = State.REEXPLORING;
             }
         }
@@ -391,11 +389,12 @@ public class Player extends scout.sim.Player {
             int index = gen.nextInt(maxPoints.size());
             return maxPoints.get(index);
         } else {
-            Point p = null;
-            for (Point unexplored : unexploredLocations) {
-                p = unexplored;
-                break;
-            }
+//            Point p = null;
+//            for (Point unexplored : unexploredLocations) {
+//                p = unexplored;
+//                break;
+//            }
+            Point p = getRandomPoint(unexploredLocations);
             if (p == null) {
                 this.state = State.MEETING;
                 return moveTowards(new Point(n/2, n/2));
@@ -460,7 +459,7 @@ public class Player extends scout.sim.Player {
     }
     
     public int travelTime(Point from, Point to) {
-        return (int) 6 * Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
+        return (int) 4 * Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
     }
     
     public void addSafeLocation(Point p) {
@@ -481,5 +480,20 @@ public class Player extends scout.sim.Player {
     
     public String stringFromPoint(Point p) {
         return "(" + p.x + "," + p.y + ")";
+    }
+    
+    public Point getRandomPoint(HashSet<Point> set) {
+        if (set.size() == 0) {
+            return null;
+        }
+        int index = gen.nextInt(set.size());
+        int i = 0;
+        for (Point unexplored : set) {
+            if (i == index) {
+                return unexplored;
+            }
+            i++;
+        }
+        return null;
     }
 }
