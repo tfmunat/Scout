@@ -7,9 +7,10 @@ import java.util.*;
 //Read scout.sim.Player for more information!
 public class Player extends scout.sim.Player {
     public enum State {
-        LOCALIZING, EXPLORING, MEETING, RETURNING
+        LOCALIZING, EXPLORING, MEETING, RETURNING, REEXPLORING
     }
     
+    ArrayList<Point> explorePath;
     HashSet<Point> enemyLocations;
     HashSet<Point> safeLocations;
     HashSet<Point> unexploredLocations;
@@ -26,11 +27,16 @@ public class Player extends scout.sim.Player {
     boolean localizedX;
     boolean localizedY;
     boolean endGame;
+    int playerTurnMap[];
     int turnsSinceSync[];
     int lastVisited[][];
     int xOffset;
     int yOffset;
+    int exploreMove;
     Point toExplore;
+    int scoutsInQuadrant;
+    int exploreBase;
+    int lastChanged;
     
     // Time since seeing another player after which their info should be
     // considered out of date (so we should try to communicate again)
@@ -61,6 +67,10 @@ public class Player extends scout.sim.Player {
         this.pos = new Point(0, 0);
         this.localized = false;
         this.turnsSinceSync = new int[s];
+        this.playerTurnMap = new int[s];
+        for (int i = 0; i < playerTurnMap.length; i++) {
+            playerTurnMap[i] = t;
+        }
         if (this.seed % 4 == 0) {
             this.endDir = new Point(1, 1);
             this.outpost = new Point(n + 1, n + 1);
@@ -85,6 +95,14 @@ public class Player extends scout.sim.Player {
                 }
             }
         }
+        this.scoutsInQuadrant = s / 4 + ((this.seed % 4 < s % 4) ? 1 : 0);
+        this.explorePath = new PathGenerator(outpost, n, (int) Math.ceil(n / 2.0)).genPath();
+//        for (Point p : explorePath) {
+//            System.out.println(stringFromPoint(p));
+//        }
+        this.exploreBase = (this.explorePath.size() / this.scoutsInQuadrant) * (this.seed / 4);
+        System.out.println(this.seed + ": Starting at " + this.exploreBase + "/" + this.explorePath.size() + ", ending at " + (this.exploreBase + this.explorePath.size() / this.scoutsInQuadrant + 1) + "/" + this.explorePath.size() + " (" + this.scoutsInQuadrant + " others in quadrant)");
+        this.exploreMove = 0;
     }
     
     @Override
@@ -152,18 +170,29 @@ public class Player extends scout.sim.Player {
         } else if (state == State.MEETING) {
             return moveTowards(new Point(n/2, n/2));
         } else if (state == State.EXPLORING) {
-        
+            if (toExplore != null) {
+                return moveTowards(toExplore);
+            }
+            exploreMove++;
+            if (exploreMove == 0) {
+                if (!pos.equals(explorePath.get(exploreBase))) {
+                    toExplore = explorePath.get(exploreBase);
+                } else {
+                    exploreMove++;
+                }
+            }
+            if (exploreMove > (this.explorePath.size() / this.scoutsInQuadrant) + 1 || exploreMove + exploreBase >= explorePath.size()) {
+                this.state = State.MEETING;
+                return moveTowards(new Point(n/2, n/2));
+            }
+            return moveTowards(explorePath.get(exploreBase + exploreMove));
+        } else if (state == State.REEXPLORING) {
             if (!inQuadrant(this.pos)) {
                 return moveTowards(this.outpost);
             }
         
             if (toExplore != null) {
                 return moveTowards(toExplore);
-            }
-        
-            Point meeting = meetingPoint(nearbyIds);
-            if (meeting != null) {
-                return meeting;
             }
             return bestPoint();
         } else {
@@ -196,9 +225,19 @@ public class Player extends scout.sim.Player {
 //        if (localizedX && localizedY && !localized) {
 //            localize(new Point(pos.x - xOffset, pos.y - yOffset));
 //        }
+        int communicatorsSeen = 0;
         for (CellObject obj : concurrentObjects) {
             if (obj instanceof Player) {
                 Player other = (Player) obj;
+                if (other == this) {
+                    continue;
+                }
+                if (other.seed / 4 == this.scoutsInQuadrant - 1) {
+                    communicatorsSeen++;
+                }
+//                if (playerTurnMap[other.seed] == other.lastChanged) {
+//                    continue;
+//                }
                 if (!localized && other.localized) {
                     localize(other.pos);
                 }
@@ -208,6 +247,7 @@ public class Player extends scout.sim.Player {
                 for (Point p : other.enemyLocations) {
                     this.addEnemyLocation(translatePoint(p, other));
                 }
+                playerTurnMap[other.seed] = other.lastChanged;
                 turnsSinceSync[other.seed] = 0;
             } else if (obj instanceof Landmark && !localized) {
                 localize(((Landmark) obj).getLocation());
@@ -229,8 +269,13 @@ public class Player extends scout.sim.Player {
             endGame = true;
             this.state = State.MEETING;
         }
-        if (this.state == State.MEETING && t <= travelTime(pos, outpost)) {
-            this.state = State.RETURNING;
+        if (t <= travelTime(pos, outpost)) {
+                this.state = State.RETURNING;
+        }
+        if (this.state == State.MEETING && pos.x == n/2 && pos.y == n/2) {
+            if (this.seed / 4 != this.scoutsInQuadrant - 1 && communicatorsSeen > 0) {
+                this.state = State.REEXPLORING;
+            }
         }
         
         --t;
@@ -352,6 +397,7 @@ public class Player extends scout.sim.Player {
                 break;
             }
             if (p == null) {
+                this.state = State.MEETING;
                 return moveTowards(new Point(n/2, n/2));
             } else {
                 unexploredLocations.remove(p);
@@ -422,6 +468,7 @@ public class Player extends scout.sim.Player {
             unexploredLocations.remove(p);
         }
         safeLocations.add(p);
+        lastChanged = t;
     }
     
     public void addEnemyLocation(Point p) {
@@ -429,5 +476,10 @@ public class Player extends scout.sim.Player {
             unexploredLocations.remove(p);
         }
         enemyLocations.add(p);
+        lastChanged = t;
+    }
+    
+    public String stringFromPoint(Point p) {
+        return "(" + p.x + "," + p.y + ")";
     }
 }

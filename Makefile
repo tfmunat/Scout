@@ -1,7 +1,7 @@
 n=100
 s=15
 e=100
-t=3000
+t=2000
 repeats=1
 p=g4
 m=sparse_landmarks
