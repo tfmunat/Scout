@@ -9,7 +9,6 @@ public class Player extends scout.sim.Player {
     public enum State {
         LOCALIZING, EXPLORING, MEETING, RETURNING, REEXPLORING
     }
-
     ArrayList<Point> explorePath;
     HashSet<Point> enemyLocations;
     HashSet<Point> safeLocations;
@@ -28,7 +27,6 @@ public class Player extends scout.sim.Player {
     boolean localizedY;
     boolean endGame;
     boolean isEnemy;
-    int playerTurnMap[];
     int turnsSinceSync[];
     int lastVisited[][];
     int xOffset;
@@ -39,7 +37,6 @@ public class Player extends scout.sim.Player {
     int exploreBase;
     int lastChanged;
     int totalCost;
-
     // Time since seeing another player after which their info should be
     // considered out of date (so we should try to communicate again)
     public final int STALE_THRESHOLD = 100;
@@ -108,7 +105,6 @@ public class Player extends scout.sim.Player {
         System.out.println(this.seed + ": Starting at " + this.exploreBase + "/" + this.explorePath.size() + ", ending at " + (this.exploreBase + this.explorePath.size() / this.scoutsInQuadrant + 1) + "/" + this.explorePath.size() + " (" + this.scoutsInQuadrant + " others in quadrant)");
         this.exploreMove = 0;
     }
-
     @Override
     public void moveFinished() {
         pos.x += this.lastMove.x;
@@ -204,29 +200,6 @@ public class Player extends scout.sim.Player {
 
     @Override
     public void communicate(ArrayList<ArrayList<ArrayList<String>>> nearbyIds, List<CellObject> concurrentObjects) {
-        //        if (!localizedY) {
-        //            if (nearbyIds.get(1).get(0) == null) {
-        //                yOffset = pos.y;
-        //                localizedY = true;
-        //            }
-        //            if (nearbyIds.get(1).get(2) == null) {
-        //                yOffset = pos.y - n + 1;
-        //                localizedY = true;
-        //            }
-        //        }
-        //        if (!localizedX) {
-        //            if (nearbyIds.get(0).get(1) == null) {
-        //                xOffset = pos.x;
-        //                localizedX = true;
-        //            }
-        //            if (nearbyIds.get(2).get(1) == null) {
-        //                xOffset = pos.x - n + 1;
-        //                localizedX = true;
-        //            }
-        //        }
-        //        if (localizedX && localizedY && !localized) {
-        //            localize(new Point(pos.x - xOffset, pos.y - yOffset));
-        //        }
         int inQuadrantSeen = 0;
         for (CellObject obj : concurrentObjects) {
             if (obj instanceof Player) {
@@ -237,9 +210,6 @@ public class Player extends scout.sim.Player {
                 if (other.seed % 4 == this.seed % 4) {
                     inQuadrantSeen++;
                 }
-                //                if (playerTurnMap[other.seed] == other.lastChanged) {
-                //                    continue;
-                //                }
                 if (!localized && other.localized) {
                     localize(other.pos);
                 }
@@ -266,7 +236,6 @@ public class Player extends scout.sim.Player {
                 }
             }
         }
-
         if (this.state == State.EXPLORING && t <= travelTime(pos, new Point(n / 2, n / 2)) + travelTime(new Point(n / 2, n / 2), outpost)) {
             endGame = true;
             this.state = State.MEETING;
@@ -279,7 +248,6 @@ public class Player extends scout.sim.Player {
                 this.state = State.REEXPLORING;
             }
         }
-
         --t;
         turnsPassed++;
         for (int i = 0; i < turnsSinceSync.length; i++) {
@@ -317,13 +285,13 @@ public class Player extends scout.sim.Player {
             this.state = State.EXPLORING;
         }
     }
-
+  
     // Parse the raw number from an id string
     public int idNum(String id) {
         String suffix = id.substring(1);
         return Integer.parseInt(suffix);
     }
-
+  
     // Get a point to meet with an adjacent scout at, if necessary
     public Point meetingPoint(ArrayList<ArrayList<ArrayList<String>>> nearbyIds) {
         int maxId = -1;
@@ -365,7 +333,7 @@ public class Player extends scout.sim.Player {
             return null;
         }
     }
-
+  
     public Point bestPoint() {
         int maxUnseen = -1;
         ArrayList<Point> maxPoints = new ArrayList<Point>();
@@ -409,7 +377,7 @@ public class Player extends scout.sim.Player {
             }
         }
     }
-
+  
     public boolean inQuadrant(Point p) {
         if (this.seed % 4 == 0) {
             return (p.x >= (int) Math.ceil(n/2.0) && p.x <= n + 1 && p.y >= (int) Math.ceil(n/2.0) && p.y <= n + 1);
@@ -421,7 +389,7 @@ public class Player extends scout.sim.Player {
             return (p.x >= 0 && p.x <= (int) Math.ceil(n/2.0) && p.y >= 0 && p.y <= (int) Math.ceil(n/2.0));
         }
     }
-
+  
     public int unseenSquares(Point surrounding) {
         int unseen = 0;
         for (int i = 0; i < 3; i++) {
@@ -436,6 +404,7 @@ public class Player extends scout.sim.Player {
         }
         return unseen;
     }
+  
     public int moveCost(Point move) {
         if (move.x == 0 && move.y == 0) {
             return 1;
@@ -448,20 +417,20 @@ public class Player extends scout.sim.Player {
         int cost = (int) Math.abs(move.x) + Math.abs(move.y) + 1;
         return cost * scale;
     }
-
+  
     public Point moveTowards(Point p) {
         //        ArrayList<Point> path = getPath(p);
         //        Point to = path.get(0);
         //        return new Point(to.x - p.x, to.y - p.y);
         return new Point(Integer.signum(p.x - pos.x), Integer.signum(p.y - pos.y));
     }
-
+  
     public ArrayList<Point> getPath(Point to) {
         ArrayList<Point> path = new ArrayList<Point>();
         path.add(this.pos);
         return path;
     }
-
+  
     public int travelTime(Point from, Point to) {
         return (int) 4 * Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
     }
