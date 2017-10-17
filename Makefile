@@ -21,3 +21,6 @@ run:
 
 verbose:
 	java scout.sim.Simulator -p ${p} -m ${m} -em ${em} -n ${n} -e ${e} -s ${s} -t ${t} --verbose
+
+clean:
+	find . -name \*.class -type f -delete
