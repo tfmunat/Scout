@@ -15,8 +15,17 @@ public class EnemyMapper extends scout.sim.EnemyMapper {
         for (int i = 0; i < num; i++) {
             locations.add(placePoint(n, num, i, new Point(0, 0)));
         }
-        return locations;
-    }
+        return locations;        
+}
+    
+public Point placePoint(int sideLength, int num, int i, Point offset) {
+    int sqrt = (int)Math.ceil(Math.sqrt(num));
+    int perRow = sqrt;
+    int subOffset = sideLength / sqrt / 2 + 1;
+    int x = i / sqrt;
+    int y = i % sqrt;
+    return new Point(offset.x + (x * sideLength / sqrt) + subOffset, offset.y + (y * sideLength / sqrt) + subOffset);
+}
 
     public Point placePoint(int sideLength, int num, int i, Point offset) {
         int sqrt = (int)Math.ceil(Math.sqrt(num));
@@ -26,4 +35,3 @@ public class EnemyMapper extends scout.sim.EnemyMapper {
         return new Point(offset.x + (x * sideLength / sqrt) + subOffset, offset.y + (y * sideLength / sqrt) + subOffset);
     }
 }
-

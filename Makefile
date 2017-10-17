@@ -1,12 +1,12 @@
-n=20
-s=10
-e=10
-t=200
-repeats=1
+n=100
+s=15
+e=100
+t=2000
+repeats=10
 p=g4
 m=sparse_landmarks
 em=random_enemymap
-fps=1000
+fps=500
 
 all: compile
 
@@ -21,5 +21,6 @@ run:
 
 verbose:
 	java scout.sim.Simulator -p ${p} -m ${m} -em ${em} -n ${n} -e ${e} -s ${s} -t ${t} --verbose
+  
 clean:
 	find . -name \*.class -type f -delete
