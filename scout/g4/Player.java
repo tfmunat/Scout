@@ -18,6 +18,7 @@ public class Player extends scout.sim.Player {
     Point pos;
     Point endDir;
     Point outpost;
+    Point meetingPoint;
     Random gen;
     State state;
     Point lastMove;
@@ -27,7 +28,6 @@ public class Player extends scout.sim.Player {
     boolean localizedX;
     boolean localizedY;
     boolean endGame;
-    boolean isEnemy;
     int playerTurnMap[];
     int turnsSinceSync[];
     int lastVisited[][];
@@ -38,7 +38,6 @@ public class Player extends scout.sim.Player {
     int scoutsInQuadrant;
     int exploreBase;
     int lastChanged;
-    int totalCost;
 
     // Time since seeing another player after which their info should be
     // considered out of date (so we should try to communicate again)
@@ -70,7 +69,6 @@ public class Player extends scout.sim.Player {
         this.localized = false;
         this.turnsSinceSync = new int[s];
         this.playerTurnMap = new int[s];
-        this.totalCost = 0;
         for (int i = 0; i < playerTurnMap.length; i++) {
             playerTurnMap[i] = t;
         }
@@ -88,7 +86,6 @@ public class Player extends scout.sim.Player {
             this.outpost = new Point(0, 0);
         }
         this.endGame = false;
-        this.isEnemy = false;
         this.state = State.LOCALIZING;
         this.unexploredLocations = new HashSet<>();
         for (int i = 0; i < n + 2; i++) {
@@ -107,6 +104,7 @@ public class Player extends scout.sim.Player {
         this.exploreBase = (this.explorePath.size() / this.scoutsInQuadrant) * (this.seed / 4);
         System.out.println(this.seed + ": Starting at " + this.exploreBase + "/" + this.explorePath.size() + ", ending at " + (this.exploreBase + this.explorePath.size() / this.scoutsInQuadrant + 1) + "/" + this.explorePath.size() + " (" + this.scoutsInQuadrant + " others in quadrant)");
         this.exploreMove = 0;
+        this.meetingPoint = new Point(n / 2, n / 2);
     }
 
     @Override
@@ -267,11 +265,13 @@ public class Player extends scout.sim.Player {
             }
         }
 
-        if (this.state == State.EXPLORING && t <= travelTime(pos, new Point(n / 2, n / 2)) + travelTime(new Point(n / 2, n / 2), outpost)) {
-            endGame = true;
-            this.state = State.MEETING;
+        if (this.state == State.EXPLORING && t <= travelTime(pos, this.meetingPoint) + travelTime(this.meetingPoint, outpost) + 18) {
+            if (t <= pathTravelTime(directPath(pos, meetingPoint)) + pathTravelTime(directPath(meetingPoint, outpost)) + 18) {
+                endGame = true;
+                this.state = State.MEETING;
+            }
         }
-        if (t <= travelTime(pos, outpost)) {
+        if (t <= travelTime(pos, outpost) + 18 && t <= pathTravelTime(directPath(pos, outpost)) + 18) {
             this.state = State.RETURNING;
         }
         if (this.state == State.MEETING && pos.x == n/2 && pos.y == n/2) {
@@ -463,7 +463,7 @@ public class Player extends scout.sim.Player {
     }
 
     public int travelTime(Point from, Point to) {
-        return (int) 4 * Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
+        return (int) 9 * Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y));
     }
 
     public void addSafeLocation(Point p) {
@@ -500,50 +500,72 @@ public class Player extends scout.sim.Player {
         }
         return null;
     }
+    
+    public Point getFirstPoint(HashSet<Point> set) {
+        int index = this.seed / this.scoutsInQuadrant;
+        if (set.size() < index) {
+            return null;
+        }
+        int i = 0;
+        for (Point unexplored : set) {
+            if (i == index) {
+                return unexplored;
+            } else {
+                set.remove(unexplored);
+            }
+            i++;
+        }
+        return null;
+    }
 
-    public int travelTime2(Point[] pathArray){
+    public int pathTravelTime(ArrayList<Point> path){
         // orthogonal cost is 2, diagonal cost is 3
         // if there's an enemy, we multiply these values by 3
-        this.totalCost = 0; // this will be the total cost
-        if (pathArray.length == 1){
-            if (enemyLocations.contains(pathArray[0])){
+        if (path.size() == 1){
+            if (enemyLocations.contains(path.get(0)) || unexploredLocations.contains(path.get(0))){
                 return 9;
             } else {
                 return 3;
             }
         }
-        for (int i = 0; i < pathArray.length; i++){
-            this.isEnemy = false;
+        int totalCost = 0; // this will be the total cost
+        for (int i = 0; i < path.size() - 1; i++){
+            boolean isEnemy = false;
             // get the two adjacent cells
-            int x1 = pathArray[i].x;
-            int y1 = pathArray[i].y;
-            int x2 = pathArray[i+1].x;
-            int y2 = pathArray[i+1].y;
-            int xdiff = Math.abs(x2 - x1);
-            int ydiff = Math.abs(y2 - y1);
+            Point curr = path.get(i);
+            Point next = path.get(i + 1);
+            int xdiff = Math.abs(next.x - curr.x);
+            int ydiff = Math.abs(next.y - curr.y);
             // check for enemy
-            if (enemyLocations.contains(pathArray[i]) || enemyLocations.contains(pathArray[i+1])) {
-                this.isEnemy = true;
+            if (enemyLocations.contains(curr) || unexploredLocations.contains(curr) || enemyLocations.contains(next) || unexploredLocations.contains(next)) {
+                isEnemy = true;
             }
 
+            int moveCost = 0;
             // get the movement type and calculate cost
-            if((xdiff == 1) && (ydiff == 1)){
+            if(xdiff == 1 && ydiff == 1){
                 // diagonal
-                if (this.isEnemy){
-                    this.totalCost += 9;
-                } else {
-                    this.totalCost += 3;
-                }
-            } else if(((xdiff == 0) && (ydiff == 1)) || ((xdiff == 1) && (ydiff == 0))){
+                moveCost = 3;
+            } else if (xdiff == 1 || ydiff == 1){
                 // orthogonal
-                if (this.isEnemy){
-                    this.totalCost += 6;
-                } else {
-                    this.totalCost += 2;
-                }
+                moveCost = 2;
             }
-            if ((i+2) >= pathArray.length) { break; }
+            if (isEnemy) {
+                moveCost *= 3;
+            }
+            totalCost += moveCost;
         }
-        return this.totalCost;
+        return totalCost;
+    }
+    
+    public ArrayList<Point> directPath(Point from, Point to) {
+        Point p = from;
+        ArrayList<Point> path = new ArrayList<Point>();
+        while (!p.equals(to)) {
+            path.add(p);
+            p = new Point(p.x + Integer.signum(to.x - p.x), p.y + Integer.signum(to.y - p.y));
+        }
+        path.add(to);
+        return path;
     }
 }
