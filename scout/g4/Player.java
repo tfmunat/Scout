@@ -38,6 +38,7 @@ public class Player extends scout.sim.Player {
     int scoutsInQuadrant;
     int exploreBase;
     int lastChanged;
+    int s;
 
     // Time since seeing another player after which their info should be
     // considered out of date (so we should try to communicate again)
@@ -61,6 +62,7 @@ public class Player extends scout.sim.Player {
         gen = new Random(seed);
         this.t = t;
         this.n = n;
+        this.s = s;
         this.turnsPassed = 0;
         int size = 2 * this.n + 3;
         //this.map = new CellObject[size][];
@@ -96,14 +98,17 @@ public class Player extends scout.sim.Player {
                 }
             }
         }
-        this.scoutsInQuadrant = s / 4 + ((this.seed % 4 < s % 4) ? 1 : 0);
-        this.explorePath = new PathGenerator(outpost, n, (int) Math.ceil(n / 2.0)).genPath();
-        //        for (Point p : explorePath) {
-        //            System.out.println(stringFromPoint(p));
-        //        }
-        this.exploreBase = (this.explorePath.size() / this.scoutsInQuadrant) * (this.seed / 4);
-        System.out.println(this.seed + ": Starting at " + this.exploreBase + "/" + this.explorePath.size() + ", ending at " + (this.exploreBase + this.explorePath.size() / this.scoutsInQuadrant + 1) + "/" + this.explorePath.size() + " (" + this.scoutsInQuadrant + " others in quadrant)");
-        this.exploreMove = 0;
+        if (s >= 4) {
+            this.scoutsInQuadrant = s / 4 + ((this.seed % 4 < s % 4) ? 1 : 0);
+            this.explorePath = new PathGenerator(outpost, n, (int) Math.ceil(n / 2.0)).genPath();
+            this.exploreBase = (this.explorePath.size() / this.scoutsInQuadrant) * (this.seed / 4);
+            this.exploreMove = 0;
+        } else {
+            this.scoutsInQuadrant = s;
+            this.explorePath = new PathGenerator(new Point(0, 0), n, n).genPath();
+            this.exploreBase = (this.explorePath.size() / this.scoutsInQuadrant) * (this.seed % 4);
+            this.exploreMove = 0;
+        }
         this.meetingPoint = new Point(n / 2, n / 2);
     }
 
@@ -134,6 +139,19 @@ public class Player extends scout.sim.Player {
         }
         if (nearbyIds.get(1).get(1 + move.y) == null) {
             copy.y = 0;
+        }
+        Point nextPos = new Point(pos.x + copy.x, pos.y + copy.y);
+        if (this.state != State.RETURNING && t <= travelTime(nextPos, outpost) && t <= pathTravelTime(directPath(nextPos, outpost))) {
+            //System.out.println(this.seed + ": Will take  at least " + pathTravelTime(directPath(nextPos, outpost)) + " turns to get back to outpost " + stringFromPoint(outpost) + " from " + stringFromPoint(nextPos) + "(t = " + t + ")");
+            this.state = State.RETURNING;
+            this.toExplore = null;
+            copy = new Point(endDir.x, endDir.y);
+            if (nearbyIds.get(1 + move.x).get(1) == null) {
+                copy.x = 0;
+            }
+            if (nearbyIds.get(1).get(1 + move.y) == null) {
+                copy.y = 0;
+            }
         }
         this.lastMove = copy;
         return copy;
@@ -265,14 +283,11 @@ public class Player extends scout.sim.Player {
             }
         }
 
-        if (this.state == State.EXPLORING && t <= travelTime(pos, this.meetingPoint) + travelTime(this.meetingPoint, outpost) + 18) {
-            if (t <= pathTravelTime(directPath(pos, meetingPoint)) + pathTravelTime(directPath(meetingPoint, outpost)) + 18) {
+        if (this.state == State.EXPLORING && t <= travelTime(pos, this.meetingPoint) + travelTime(this.meetingPoint, outpost) + 9) {
+            if (t <= pathTravelTime(directPath(pos, meetingPoint)) + pathTravelTime(directPath(meetingPoint, outpost)) + 9) {
                 endGame = true;
                 this.state = State.MEETING;
             }
-        }
-        if (t <= travelTime(pos, outpost) + 18 && t <= pathTravelTime(directPath(pos, outpost)) + 18) {
-            this.state = State.RETURNING;
         }
         if (this.state == State.MEETING && pos.x == n/2 && pos.y == n/2) {
             if (this.seed / 4 != this.scoutsInQuadrant - 1 && inQuadrantSeen == this.scoutsInQuadrant - 1) {
@@ -453,7 +468,21 @@ public class Player extends scout.sim.Player {
         //        ArrayList<Point> path = getPath(p);
         //        Point to = path.get(0);
         //        return new Point(to.x - p.x, to.y - p.y);
-        return new Point(Integer.signum(p.x - pos.x), Integer.signum(p.y - pos.y));
+        return directMove(pos, p);
+    }
+    
+    public Point directMove(Point from, Point to) {
+        Point rawMove = new Point(Integer.signum(to.x - from.x), Integer.signum(to.y - from.y));
+//        if (isDiagonalMove(rawMove) && moveCost(rawMove) == 9) {
+//            Point yMove = new Point(0, rawMove.y);
+//            Point xMove = new Point(rawMove.x, 0);
+//            if (moveCost(xMove) == 2) {
+//                return xMove;
+//            } else if (moveCost(yMove) == 2) {
+//                return yMove;
+//            }
+//        }
+        return rawMove;
     }
 
     public ArrayList<Point> getPath(Point to) {
@@ -563,9 +592,14 @@ public class Player extends scout.sim.Player {
         ArrayList<Point> path = new ArrayList<Point>();
         while (!p.equals(to)) {
             path.add(p);
-            p = new Point(p.x + Integer.signum(to.x - p.x), p.y + Integer.signum(to.y - p.y));
+            Point move = directMove(p, to);
+            p = new Point(p.x + move.x, p.y + move.y);
         }
         path.add(to);
         return path;
+    }
+    
+    public boolean isDiagonalMove(Point move) {
+        return move.x * move.x == 1 && move.y * move.y == 1;
     }
 }
