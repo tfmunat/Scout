@@ -1,6 +1,6 @@
 /* n = 100
  * s = 15
- * e = 600
+ * e = 700
  * t = 2000
  * fps = 500
  */
@@ -24,6 +24,7 @@ public class EnemyMapper extends scout.sim.EnemyMapper {
         int count2 = n/4;
         int count3 = n/8;
         int x = 0;
+        int x2 = n;
         int y = (n/2);
         while(locations.size() < num) {
             count1++;
@@ -32,15 +33,22 @@ public class EnemyMapper extends scout.sim.EnemyMapper {
             if((count1 <= (n/2) - 1)){
                 locations.add(new Point(x + count1, y + count1));
                 locations.add(new Point(x + count1, y - count1));
-            } 
+                locations.add(new Point(x2 - count1, y + count1));
+                locations.add(new Point(x2 - count1, y - count1));
+            }
             if((count2 <= (n/2) - 1)) {
                 locations.add(new Point(x + count2, y + count1));
                 locations.add(new Point(x + count2, y - count1));
+                locations.add(new Point(x2 - count2, y + count1));
+                locations.add(new Point(x2 - count2, y - count1));
             }
             if((count3 <= (n/2) - 1)) {
                 locations.add(new Point(x + count3, y + count1));
                 locations.add(new Point(x + count3, y - count1));
+                locations.add(new Point(x2 - count3, y + count1));
+                locations.add(new Point(x2 - count3, y - count1));
             }
+            // rest are scattered
             locations.add(new Point((gen.nextInt(n)) + 1, (gen.nextInt(n)) + 1));
         }
         return locations;
