@@ -5,7 +5,7 @@ t=200
 repeats=1
 p=g4
 m=sparse_landmarks
-em=random_enemymap
+em=g4
 fps=1000
 
 all: compile
