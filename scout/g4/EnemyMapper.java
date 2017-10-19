@@ -1,3 +1,11 @@
+/* n = 100
+ * s = 15
+ * e = 1000
+ * t = 2000
+ * fps = 500
+ */
+
+
 package scout.g4;
 
 import scout.sim.Point;
@@ -12,18 +20,20 @@ public class EnemyMapper extends scout.sim.EnemyMapper {
     @Override
     public Set<Point> getLocations(int n, int num, List<Point> landmarkLocation, Random gen) {
         Set<Point> locations = new HashSet<>();
-        for (int i = 0; i < num; i++) {
-            locations.add(placePoint(n, num, i, new Point(0, 0)));
+        int count1 = 1;
+        int count2 = 1;
+        int x = 0;
+        int y = (n/2);
+        while(locations.size() < num) {
+            count1++;
+            count2++;
+            if((count1 >= (n/2) - 1) || (count2 >= (n - 1))){
+                locations.add(new Point((gen.nextInt(n)) + 1, (gen.nextInt(n)) + 1));
+            } else {
+                locations.add(new Point(x + count1, y + count2));
+                locations.add(new Point(x + count1, y - count2));
+            }
         }
         return locations;
     }
-
-    public Point placePoint(int sideLength, int num, int i, Point offset) {
-        int sqrt = (int)Math.ceil(Math.sqrt(num));
-        int subOffset = sideLength / sqrt / 2 + 1;
-        int x = i / sqrt;
-        int y = i % sqrt;
-        return new Point(offset.x + (x * sideLength / sqrt) + subOffset, offset.y + (y * sideLength / sqrt) + subOffset);
-    }
 }
-

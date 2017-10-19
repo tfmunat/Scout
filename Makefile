@@ -1,8 +1,8 @@
-n=20
-s=10
-e=10
-t=200
-repeats=1
+n=100
+s=15
+e=1000
+t=2000
+repeats=10
 p=g4
 m=sparse_landmarks
 em=g4
